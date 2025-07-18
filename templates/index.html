@@ -1,41 +1,57 @@
-
 <!DOCTYPE html>
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
     <title>Cosmic Canvas</title>
     <style>
-        body { 
+        html, body {
+            height: 100%;
+            margin: 0;
+            overflow: hidden;
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             background-color: #000010;
             color: #e0e0e0;
-            margin: 0;
-            overflow: hidden;
-            display: flex;
-            flex-direction: column;
-            height: 100vh;
         }
+
         #header {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 50px; /* Explicit height */
             text-align: center;
             padding: 10px;
             background: rgba(0, 0, 0, 0.3);
             border-bottom: 1px solid #444;
+            z-index: 10;
+            box-sizing: border-box;
         }
         #header h1 { margin: 0; font-size: 1.8em; color: #FFF; text-shadow: 0 0 10px #0ff; }
+
         #main-content {
+            position: fixed;
+            top: 50px; /* Position below header */
+            bottom: 0;
+            left: 0;
+            right: 0;
             display: flex;
-            flex-grow: 1;
         }
+
         #cosmic-canvas-container {
-            flex-grow: 1;
-            position: relative; 
+            flex-grow: 1; /* Fill remaining width */
+            position: relative;
         }
+
         canvas {
             display: block;
+            width: 100%;
+            height: 100%;
             background-color: #000010;
         }
+
         #palette {
             width: 250px;
+            flex-shrink: 0;
             background-color: #101020;
             border-left: 1px solid #444;
             padding: 15px;
@@ -43,9 +59,18 @@
             display: flex;
             flex-direction: column;
         }
-        #elements-list {
-            overflow-y: auto;
+
+        #palette h2 {
+            margin-top: 0;
+            flex-shrink: 0;
         }
+
+        #elements-list {
+            flex-grow: 1; /* Fill remaining height in palette */
+            overflow-y: auto; /* Finally, this will work */
+            min-height: 0; /* Best practice for safety */
+        }
+
         .element {
             cursor: pointer;
             padding: 10px;
@@ -57,6 +82,7 @@
         }
         .element:hover { background-color: #303050; border-color: #7070A0; }
         .element.selected { background-color: #4A90E2; border-color: #FFF; color: #FFF; }
+
         #notification, #win-notification {
             position: absolute;
             left: 50%;
@@ -114,18 +140,24 @@
     const container = document.getElementById('cosmic-canvas-container');
     const elementsList = document.getElementById('elements-list');
 
-    canvas.width = container.offsetWidth;
-    canvas.height = container.offsetHeight;
+    // Canvasのサイズ設定はCSSで行うため、JSでの初期設定は不要
+    // canvas.width = container.offsetWidth;
+    // canvas.height = container.offsetHeight;
 
     let selectedElements = [];
     let celestials = [];
 
     function drawCelestial(celestial) {
         ctx.beginPath();
-        // Special rendering for visual effects like Aurora
         if (celestial.size === 0) return;
 
-        ctx.arc(celestial.x, celestial.y, celestial.size, 0, Math.PI * 2);
+        // canvasの実際のピクセルサイズに合わせて座標をスケーリング
+        const x = celestial.x * canvas.width;
+        const y = celestial.y * canvas.height;
+        const size = celestial.size * Math.min(canvas.width, canvas.height);
+
+
+        ctx.arc(x, y, size, 0, Math.PI * 2);
         ctx.fillStyle = celestial.color;
         
         if (celestial.name === "ブラックホール") {
@@ -135,13 +167,20 @@
         } else {
             ctx.fill();
         }
-        ctx.shadowBlur = celestial.size * 1.5;
+        ctx.shadowBlur = size * 1.5;
         ctx.shadowColor = celestial.color;
         ctx.fill();
         ctx.shadowBlur = 0;
     }
 
     function redrawCanvas() {
+        // レンダリング前にキャンバスの実際のサイズを取得
+        const dpr = window.devicePixelRatio || 1;
+        const rect = canvas.getBoundingClientRect();
+        canvas.width = rect.width * dpr;
+        canvas.height = rect.height * dpr;
+        ctx.scale(dpr, dpr);
+
         ctx.clearRect(0, 0, canvas.width, canvas.height);
         celestials.forEach(drawCelestial);
     }
@@ -187,8 +226,6 @@
         }, duration);
     }
 
-    // --- Socket.IO Event Handlers ---
-
     socket.on('current_state', function(state) {
         celestials = state.celestials;
         populatePalette(state.elements);
@@ -196,6 +233,7 @@
     });
 
     socket.on('new_celestial', function(data) {
+        // サーバーから受け取る座標は0-1の相対値と仮定
         celestials.push(data);
         redrawCanvas();
         showNotification(`New discovery: ${data.name}!`);
@@ -216,12 +254,10 @@
         winNote.style.top = "50%";
     });
 
-    // --- Initial Setup ---
-    window.addEventListener('resize', () => {
-        canvas.width = container.offsetWidth;
-        canvas.height = container.offsetHeight;
-        redrawCanvas();
-    });
+    window.addEventListener('resize', redrawCanvas);
+    
+    // 初期描画
+    redrawCanvas();
 
 </script>
 </body>

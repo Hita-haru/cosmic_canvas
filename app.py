@@ -98,6 +98,7 @@ def load_game_state():
 
     if not discovered_elements:
         discovered_elements = {"星屑", "重力", "ガス", "光", "水", "鉄", "有機物", "時間", "空間", "暗黒物質"}
+        
     if not celestials_on_canvas:
          celestials_on_canvas = []
 
